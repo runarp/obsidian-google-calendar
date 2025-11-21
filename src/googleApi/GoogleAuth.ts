@@ -25,6 +25,7 @@ import {
 import { Notice, Platform, requestUrl } from "obsidian";
 import { createNotice } from 'src/helper/NoticeHelper';
 import { log } from '../helper/log';
+import { MobileAuthModal } from '../modal/MobileAuthModal';
 
 
 const PORT = 42813;
@@ -178,18 +179,35 @@ export async function StartLoginGoogleMobile(): Promise<void> {
 		authSession.challenge = await generateChallenge(authSession.verifier);
 	}
 
-	const authUrl = 'https://accounts.google.com/o/oauth2/v2/auth'
-	+ `?client_id=${CLIENT_ID}`
-	+ `&response_type=code`
-	+ `&redirect_uri=${REDIRECT_URL_MOBILE}`
-	+ `&prompt=consent`
-	+ `&access_type=offline`
-	+ `&state=${authSession.state}`
-	+ `&code_challenge=${authSession.challenge}`
-	+ `&code_challenge_method=S256`
-	+ `&scope=https://www.googleapis.com/auth/calendar.readonly%20https://www.googleapis.com/auth/calendar.events`;
+	// Use URL and URLSearchParams to properly encode all parameters
+	const authUrlObj = new URL('https://accounts.google.com/o/oauth2/v2/auth');
+	authUrlObj.searchParams.set('client_id', CLIENT_ID);
+	authUrlObj.searchParams.set('response_type', 'code');
+	authUrlObj.searchParams.set('redirect_uri', REDIRECT_URL_MOBILE);
+	authUrlObj.searchParams.set('prompt', 'consent');
+	authUrlObj.searchParams.set('access_type', 'offline');
+	authUrlObj.searchParams.set('state', authSession.state);
+	authUrlObj.searchParams.set('code_challenge', authSession.challenge);
+	authUrlObj.searchParams.set('code_challenge_method', 'S256');
+	authUrlObj.searchParams.set('scope', 'https://www.googleapis.com/auth/calendar.readonly https://www.googleapis.com/auth/calendar.events');
 
-	window.open(authUrl);
+	const authUrl = authUrlObj.toString();
+
+	// On mobile, use a modal with a clickable link since window.open may not work
+	if (Platform.isMobileApp) {
+		// Create a modal with a clickable link for mobile
+		const modal = new MobileAuthModal(plugin.app, authUrl);
+		modal.open();
+		log('Mobile auth URL: ' + authUrl);
+	} else {
+		// On desktop, use window.open as before
+		try {
+			window.open(authUrl, '_blank');
+		} catch (error) {
+			log('Error opening auth URL: ' + error);
+			createNotice('Error opening authentication URL. Please check the console for the URL.', true);
+		}
+	}
 }
 
 export async function FinishLoginGoogleMobile(code:string, state:string): Promise<void> {
