@@ -46,6 +46,8 @@ To insert event details into the note you the following syntax:
 
 All [properties of the Google Calendar Event](https://github.com/YukiGasai/obsidian-google-calendar/blob/0518e3f6f1943645ecf9bfc747e046ab9d92b871/src/suggest/GoogleEventSuggestionList.ts#L121C1-L246) can be used.
 
+> **Note:** When using `{{gEvent.description}}`, HTML content from Google Calendar is automatically converted to Markdown format. This ensures that links, lists, and other HTML elements are properly formatted as Markdown in your notes.
+
 Example:
 
 ~~~md title="Template example"

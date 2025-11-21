@@ -267,9 +267,13 @@
             return;
         }
         if (plugin.settings.useDefaultTemplate && plugin.settings.defaultFolder && plugin.settings.defaultFolder) {
-            createNoteFromEvent(event, plugin.settings.defaultFolder, plugin.settings.defaultTemplate)
+            await createNoteFromEvent(event, plugin.settings.defaultFolder, plugin.settings.defaultTemplate)
+            closeFunction();
         } else {
-            new CreateNotePromptModal(event, (newNote:TFile) => eventNoteQueryResult.file = newNote).open();
+            new CreateNotePromptModal(event, (newNote:TFile) => {
+                eventNoteQueryResult.file = newNote;
+                closeFunction();
+            }).open();
         }
     }
     

@@ -7,6 +7,7 @@ import { createNotice } from "./NoticeHelper";
 import { settingsAreCompleteAndLoggedIn } from "../view/GoogleCalendarSettingTab";
 import _ from "lodash";
 import { findEventNote, sanitizeFileName } from "./Helper";
+import TurndownService from 'turndown';
 
 /**
  * This function implements the automatic creation of notes from a google calendar event
@@ -115,6 +116,26 @@ const injectEventDetails = (event: GoogleEvent, inputText: string): string => {
                     } else {
                         newContent += `- [${array[i].fileUrl}](${array[i].fileUrl})\n`;
                     }
+                }
+            } else if (match[1] == "description") {
+                // Convert HTML description to Markdown
+                // The description might be HTML (from Google Calendar or from the modal's marked() conversion)
+                const description = _.get(event, match[1], "");
+                if (description && typeof description === "string") {
+                    // Check if it looks like HTML (contains HTML tags)
+                    // If it's already markdown (no HTML tags), use it as-is
+                    if (/<[a-z][\s\S]*>/i.test(description)) {
+                        // It's HTML, convert to Markdown
+                        const turndownService = new TurndownService();
+                        newContent = turndownService.turndown(description);
+                        // Replace escaped Obsidian links that Google might have escaped
+                        newContent = newContent.replace(/\\\[\\\[([^(\\\])]*)\\\]\\\]/g, `[[$1]]`);
+                    } else {
+                        // It's already markdown, use as-is
+                        newContent = description;
+                    }
+                } else {
+                    newContent = description ?? "";
                 }
             } else {
                 newContent = _.get(event, match[1], "");

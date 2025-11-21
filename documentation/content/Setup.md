@@ -36,13 +36,15 @@ A video showing the creation of the google cloud project can be found [here](htt
 - Enable the [[UseCustomClient]] setting
 - Insert your [[GoogleClientId]] and [[GoogleClientSecret]] in the input fields
 - Press Login
-  - A browser window will open
+  - **Desktop:** A browser window will open automatically
+  - **Mobile:** A modal will appear with a clickable link to open Google's authentication page
 - Login / Select your google account
 - Google will display a warning that the app is not verified
   1. Click on advanced
   2. Click on go to {project name} (unsafe)
   - The browser will redirect to the consent screen
 - Click on allow (Make sure to allow all scopes)
+- After authentication, you will be redirected back to Obsidian automatically
 
 ![Example Google Warning](./exampleGoogleWarning.png)
 
