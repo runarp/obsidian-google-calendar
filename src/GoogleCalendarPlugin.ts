@@ -140,6 +140,9 @@ export default class GoogleCalendarPlugin extends Plugin {
 
 	events: EventRef[] = [];
 
+	private editorChangeTimeout: NodeJS.Timeout | null = null;
+	private vaultEventTimeout: NodeJS.Timeout | null = null;
+
 
 	initView = async (viewId: string, event?: GoogleEvent, closeFunction?: () => void): Promise<WorkspaceLeaf> => {
 		if (
@@ -202,18 +205,22 @@ export default class GoogleCalendarPlugin extends Plugin {
 		this.app.workspace.onLayoutReady(this.onLayoutReady);
 
 
-		this.events.push(this.app.vault.on("create", () => {
-			checkForNewDailyNotes(this);
-			checkForNewWeeklyNotes(this)
-		}));
-		this.events.push(this.app.vault.on("delete", () => {
-			checkForNewDailyNotes(this);
-			checkForNewWeeklyNotes(this)
-		}));
-		this.events.push(this.app.vault.on("rename", () => {
-			checkForNewDailyNotes(this);
-			checkForNewWeeklyNotes(this)
-		}));
+		// Debounce vault event handlers to prevent blocking on rapid file operations
+		const VAULT_EVENT_DEBOUNCE_MS = 500; // Debounce for 500ms
+
+		const debouncedDailyNoteCheck = () => {
+			if (this.vaultEventTimeout) {
+				clearTimeout(this.vaultEventTimeout);
+			}
+			this.vaultEventTimeout = setTimeout(() => {
+				checkForNewDailyNotes(this);
+				checkForNewWeeklyNotes(this);
+			}, VAULT_EVENT_DEBOUNCE_MS);
+		};
+
+		this.events.push(this.app.vault.on("create", debouncedDailyNoteCheck));
+		this.events.push(this.app.vault.on("delete", debouncedDailyNoteCheck));
+		this.events.push(this.app.vault.on("rename", debouncedDailyNoteCheck));
 		this.events.forEach(event => {
 			this.registerEvent(event);
 		});
@@ -275,12 +282,39 @@ export default class GoogleCalendarPlugin extends Plugin {
 			(leaf: WorkspaceLeaf) => new EventView(leaf, { start: {}, end: {}}, () => {})
 		);
 
+		// Debounce editor-change handlers to prevent UI blocking
+		let lastEditorChangeTime = 0;
+		const EDITOR_CHANGE_DEBOUNCE_MS = 300; // Debounce for 300ms
+
 		this.registerEvent(
 			this.app.workspace.on(
 				"editor-change",
 				(editor: Editor) => {
-					checkEditorForAtDates(editor, this);
-					checkEditorForInsertedEvents(editor)
+					// Skip if editor is not in an active view (prevents processing when switching files)
+					const activeView = this.app.workspace.getActiveViewOfType(MarkdownView);
+					if (!activeView || activeView.editor !== editor) {
+						return;
+					}
+
+					const now = Date.now();
+					lastEditorChangeTime = now;
+
+					// Clear existing timeout
+					if (this.editorChangeTimeout) {
+						clearTimeout(this.editorChangeTimeout);
+					}
+
+					// Debounce the expensive operations
+					this.editorChangeTimeout = setTimeout(() => {
+						// Only run if this is still the most recent change and editor is still active
+						if (Date.now() - lastEditorChangeTime >= EDITOR_CHANGE_DEBOUNCE_MS - 50) {
+							const currentActiveView = this.app.workspace.getActiveViewOfType(MarkdownView);
+							if (currentActiveView && currentActiveView.editor === editor) {
+								checkEditorForAtDates(editor, this);
+								checkEditorForInsertedEvents(editor);
+							}
+						}
+					}, EDITOR_CHANGE_DEBOUNCE_MS);
 				})
 		);
 
@@ -758,6 +792,16 @@ export default class GoogleCalendarPlugin extends Plugin {
 	}
 
 	onunload(): void {
+
+		// Clean up debounce timeouts
+		if (this.editorChangeTimeout) {
+			clearTimeout(this.editorChangeTimeout);
+			this.editorChangeTimeout = null;
+		}
+		if (this.vaultEventTimeout) {
+			clearTimeout(this.vaultEventTimeout);
+			this.vaultEventTimeout = null;
+		}
 
 		this.app.workspace.detachLeavesOfType(VIEW_TYPE_GOOGLE_CALENDAR_DAY);
 		this.app.workspace.detachLeavesOfType(VIEW_TYPE_GOOGLE_CALENDAR_WEEK);

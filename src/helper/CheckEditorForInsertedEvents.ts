@@ -38,11 +38,35 @@ async function getEventsInFile(fileContent: string): Promise<GoogleEvent[]> {
     return events;
 }
 
+// Cache to avoid re-reading file content unnecessarily
+let lastFileContent: string | null = null;
+let lastFileContentHash: number = 0;
+
 export async function checkEditorForInsertedEvents(
     editor: Editor,
 ): Promise<void> {
+    // Quick early return: check if file contains the pattern before expensive operations
+    const currentLine = editor.getLine(editor.getCursor().line);
+    const nearbyContent = editor.getRange(
+        { line: Math.max(0, editor.getCursor().line - 5), ch: 0 },
+        { line: Math.min(editor.lineCount() - 1, editor.getCursor().line + 5), ch: 999 }
+    );
+    
+    // Only proceed if we see the pattern nearby
+    if (!nearbyContent.includes("{{gEvent") && !nearbyContent.includes("}} ")) {
+        return;
+    }
+
     const cursorPosition = editor.getCursor();
     let fileContent = editor.getValue();
+
+    // Simple hash to detect if content actually changed
+    const contentHash = fileContent.length + (fileContent.match(/{{gEvent/g)?.length || 0);
+    if (lastFileContent === fileContent && lastFileContentHash === contentHash) {
+        return; // Content hasn't changed, skip processing
+    }
+    lastFileContent = fileContent;
+    lastFileContentHash = contentHash;
 
     const regexForTemplates = /{{gEvent(\d?).(.*)}} /g;
 

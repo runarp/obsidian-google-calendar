@@ -17,3 +17,22 @@ data.json
 
 # Exclude macOS Finder (System Explorer) View States
 .DS_Store
+
+# Cursor rules (machine-specific paths)
+.cursorrules
+.cursor-instructions.md
+
+# Debug/trace files
+*.trace
+*.log
+*_trace*.sh
+*_trace*.md
+*_ANALYSIS.md
+*_DIAGNOSIS.md
+analyze_trace*.sh
+check_*.sh
+fix_*.sh
+run_trace*.sh
+trace_*.sh
+trace_*.log
+trace_output.log
